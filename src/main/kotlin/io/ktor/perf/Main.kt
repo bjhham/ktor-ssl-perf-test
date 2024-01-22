@@ -4,6 +4,7 @@ import io.ktor.client.*
 import io.ktor.client.engine.apache5.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.network.tls.certificates.*
 import io.ktor.server.application.*
@@ -23,6 +24,7 @@ private const val PORT_NUMBER = 8843
 private const val SECRET = "pwd123"
 private const val KEY_ALIAS = "loadTest"
 private const val CLIENT_ENGINE = "cio"
+private const val NUMBER_OF_REQUESTS = 10_000
 
 @OptIn(DelicateCoroutinesApi::class)
 fun main() {
@@ -71,12 +73,13 @@ fun main() {
         else -> throw IllegalStateException("Invalid engine $CLIENT_ENGINE")
     }
 
+    val startTime = System.currentTimeMillis()
     val successfulRequests = AtomicInteger()
     val job = GlobalScope.launch {
-        for (i in 0..10_000) {
+        for (i in 0 until NUMBER_OF_REQUESTS) {
             if (isActive) launch {
                 val response = client.get("https://localhost:$PORT_NUMBER/hello")
-                if (response.status.isSuccess())
+                if (response.status.isSuccess() && response.bodyAsText() == "Hello, World!")
                     successfulRequests.getAndIncrement()
             }
         }
@@ -87,7 +90,12 @@ fun main() {
         server.stop()
     }
 
-    println("${successfulRequests.get()} successful requests")
+    println(String.format(
+        "%d of %d success in %.2f seconds",
+        successfulRequests.get(),
+        NUMBER_OF_REQUESTS,
+        (System.currentTimeMillis() - startTime).toDouble() / 1000.0
+    ))
 }
 
 fun Application.module() {
